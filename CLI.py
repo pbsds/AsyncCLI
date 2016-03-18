@@ -149,7 +149,7 @@ class CommandLineInterface():
 		if self.updated or force:
 			if clear:
 				self.clear(lineOnly=True)
-				sys.stdout.write("\b")
+				#sys.stdout.write("\b")
 			sys.stdout.write(self.prompt)
 			
 			

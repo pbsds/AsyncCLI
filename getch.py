@@ -20,6 +20,8 @@ else:
 #	- isSpecial(key):
 #		returns True if the key is a special key and not a character, with space excluded from the special keys
 
+#todo: maybe change the key valuesto not overide certain utf-8 values?
+
 #special keys:
 k_Escape = chr(200)
 k_Up = chr(201)
@@ -49,10 +51,7 @@ k_Backspace = "\b"
 k_Space = " "
 k_Enter = "\n"
 k_Return = "\n"#alias
-
-#Todo linux and windows compatible:
-k_Tilde = chr(126)#escape
-
+k_Tilde = chr(126)
 k_Ignored = chr(254)
 k_Unknown = chr(255)
 
@@ -62,7 +61,7 @@ def key2word(k):
 	return k
 
 def isSpecial(k):
-	if k and ord(k) >= 200 or k in "\n\b\t":
+	if k and 222 >= ord(k) >= 200 or k in "\n\b\t":
 		return True
 	return False
 
@@ -88,6 +87,16 @@ for i in range(12): WORDS[chr(210+i+1)] = "F%i" % (1+i)#F1-F12
 if os.name == "nt":#Windows
 	import msvcrt, time
 	_winEscape0Key = {27:k_Ignored,
+	                  59:k_F1,
+	                  60:k_F2,
+	                  61:k_F3,
+	                  62:k_F4,
+	                  63:k_F5,
+	                  64:k_F6,
+	                  65:k_F7,
+	                  66:k_F8,
+	                  67:k_F9,
+	                  68:k_F10,
 	                  83:k_Del,#delete
 	                  71:k_Home,#numpad
 	                  73:k_PgUp,#numpad
@@ -103,7 +112,7 @@ if os.name == "nt":#Windows
 	                  80:k_Down,
 	                  75:k_Left,
 	                  77:k_Right,
-	                  113:k_F11,
+	                  133:k_F11,
 	                  134:k_F12,
 	                  71:k_Home,
 	                  79:k_End,
@@ -152,6 +161,27 @@ if os.name == "nt":#Windows
 else:#linux
 	import tty, termios, atexit, Queue, __builtin__
 	from threading import Thread
+	
+	#0x1b 0x5b 0xXX 0x7e escape sequences, 0xXX could be ommited
+	_escSequenceKey = {}
+	_escSequenceKey[0x31] = {49:k_F1,
+	                         50:k_F2,
+	                         51:k_F3,
+	                         52:k_F4,
+	                         53:k_F5,
+	                         55:k_F6,
+	                         56:k_F7,
+	                         57:k_F8,
+	                         126:k_Home}#only 4 characters
+	_escSequenceKey[0x32] = {48:k_F9,
+	                         49:k_F10,
+	                         51:k_F11,
+	                         52:k_F12,
+	                         126:k_Insert}#only 4 characters
+	_escSequenceKey[0x33] = {126:k_Del}#only 4 characters
+	_escSequenceKey[0x34] = {126:k_End}#only 4 characters
+	_escSequenceKey[0x35] = {126:k_PgUp}#only 4 characters
+	_escSequenceKey[0x36] = {126:k_PgDown}#only 4 characters
 	
 	class _reader(Thread):
 		def __init__(self):
@@ -205,14 +235,14 @@ else:#linux
 			try:
 				k2 = READER.queue.get(timeout=0.05)
 				READER.queue.task_done()
-			except Empty:
+			except Queue.Empty:
 				k2 = None
 			
-			if k2 == "\x5b":#arrowkeys and F1-F12
+			if k2 == "\x5b":#escape sequence. mostly arrowkeys and F1-F12
 				try:
 					k3 = READER.queue.get(timeout=0.05)
 					READER.queue.task_done()
-				except Empty:
+				except Queue.Empty:
 					k3 = None
 				
 				if k3 == "\x41":#Up
@@ -223,46 +253,34 @@ else:#linux
 					return k_Right
 				elif k3 == "\x44":#Left
 					return k_Left
-				elif k3 == "\x31":#F1-F8
+				elif ord(k3) in _escSequenceKey:#escape sequence
 					try:
 						k4 = ord(READER.queue.get(timeout=0.05))
 						READER.queue.task_done()
-					except Empty:
+					except Queue.Empty:
 						k4 = -1
 					
-					if k4 >= 55:
-						k4 -= 1#i can't even
-					if 1 <= k4-48 <= 8:
-						out = (k_F1, k_F2, k_F3, k_F4, k_F5, k_F6, k_F7, k_F8)[k4-49]
-								
+					check = _escSequenceKey[ord(k3)]
+					
+					if k4 in check:
+						if k4 != 126:
+							try:
+								k5 = READER.queue.get(timeout=0.05)
+								READER.queue.task_done()
+							except Queue.Empty:
+								k5 = None
+							
+							if k5 == "\x7e":
+								return check[k4]
+						else:
+							return check[k4]
+					elif k4 != 126:
+						#k5 ignored
 						try:
 							k5 = READER.queue.get(timeout=0.05)
 							READER.queue.task_done()
-						except Empty:
-							k5 = None
-						
-						if k5 == "\x7e":
-							return out
-				elif k3 == "\x32":#F9-F12
-					try:
-						k4 = ord(READER.queue.get(timeout=0.05))
-						READER.queue.task_done()
-					except Empty:
-						k4 = -1
-					
-					if k4 >= 51:
-						k4 -= 1#i can't even
-					if 1 <= k4-47 <= 4:
-						out = (k_F9, k_F10, k_F11, k_F12)[k4-48]
-						
-						try:
-							k5 = READER.queue.get(timeout=0.05)
-							READER.queue.task_done()
-						except Empty:
-							k5 = None
-						
-						if k5 == "\x7e":
-							return out
+						except Queue.Empty:
+							pass
 			elif k2 == None:
 				return k_Escape
 			else:
