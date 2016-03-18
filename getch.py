@@ -1,7 +1,5 @@
-﻿#!/usr/bin/python2
+﻿#!/usr/bin/python3
 # -*- coding: utf-8 -*-
-#not tested on python 3, but should(?) be compliant
-#from __future__ import print_function
 import sys, os
 if sys.version_info[0] >= 3:
 	import _thread as thread
@@ -31,7 +29,7 @@ k_Right = chr(204)
 k_Home = chr(205)
 k_End = chr(206)
 k_Insert = chr(207)
-k_Del = chr(208)#same as Delete
+k_Del = chr(208)#same as Delete, no need to differentiate
 k_PgUp = chr(209)
 k_PgDown = chr(210)
 k_F1 = chr(211)
@@ -112,8 +110,8 @@ if os.name == "nt":#Windows
 	                  80:k_Down,
 	                  75:k_Left,
 	                  77:k_Right,
-	                  133:k_F11,
-	                  134:k_F12,
+	                  133:k_F11,#
+	                  134:k_F12,#
 	                  71:k_Home,
 	                  79:k_End,
 	                  82:k_Insert,
@@ -125,19 +123,21 @@ if os.name == "nt":#Windows
 	
 	def getch(raw=False):
 		k = msvcrt.getch()
-		if k == "\x03":
+		kord = ord(k)
+		
+		if kord == 0x03:
 			#raise KeyboardInterrupt
 			thread.interrupt_main()
 		elif raw:
 			return k
 		
-		if k == "\r":
+		if kord == ord("\r"):
 			return "\n"
-		elif k == "\x1b":
+		elif kord == 0x1b:
 			return k_Escape
-		#elif k == "\x7e":
+		#elif kord == 0x7e:
 		#	return k_Tilde
-		elif k in ("\x00", "\xe0"):
+		elif kord in (0x00, 0xe0):
 			t = time.time() + 0.05
 			while time.time() <= t:
 				if msvcrt.kbhit():
@@ -145,7 +145,7 @@ if os.name == "nt":#Windows
 			else:
 				return k_Unknown
 			
-			if k == "\x00":
+			if kord == "\x00":
 				conv = _winEscape0Key
 			else:
 				conv = _winEscape224Key
@@ -156,11 +156,18 @@ if os.name == "nt":#Windows
 				return conv[k2]
 			else:
 				return k_Unknown
-			
-		return k
+		
+		if sys.version_info[0] >= 3:
+			return k.decode("ibm437")
+		else:
+			return k
 else:#linux
-	import tty, termios, atexit, Queue, __builtin__
+	import tty, termios, atexit
 	from threading import Thread
+	if sys.version_info[0] >= 3:
+		import queue as Queue, builtins as __builtin__
+	else:
+		import Queue, __builtin__
 	
 	#0x1b 0x5b 0xXX 0x7e escape sequences, 0xXX could be ommited
 	_escSequenceKey = {}
@@ -287,14 +294,15 @@ else:#linux
 				return k_Unknown
 		elif k == "\r":
 			return "\n"
-		
+		elif k == "\x7f":
+			return "\b"
 		return k
 
 
 if __name__ == "__main__":
 	import time, random
 	
-	print("Welcome to the getch example, try pressing some keys!\n")
+	print("\nWelcome to the getch example, try pressing some keys!\n")
 	
 	doAsync = True
 	doRaw = False

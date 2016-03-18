@@ -1,6 +1,11 @@
+#!/usr/bin/python
 from getch import getch, isSpecial as keyIsSpecial, k_Left, k_Right, k_Del, k_Home, k_End
 from threading import Thread
-import sys, os, time, __builtin__, Queue
+import sys, os, time
+if sys.version_info[0] >= 3:
+	import builtins as __builtin__, queue as Queue
+else:
+	import __builtin__, Queue
 
 #todo:
 #add the option of letting the daemon call CommandLineInterface.refresh_prompt()
@@ -17,7 +22,7 @@ class CommandLineInterface():
 				self.cli.queue.put(k)
 		
 	markerGuard = 8
-	refreshTime = 0.5#seconds
+	refreshTime = 2.0#seconds
 	def __init__(self, replacePrint=False):#replacePrint:python3 only
 		#what should be in front of the prompt:
 		self.prompt = " > "
