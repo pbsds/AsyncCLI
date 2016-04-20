@@ -8,7 +8,7 @@ else:
 	import __builtin__, Queue
 
 #todo:
-#add the option of letting the daemon call CommandLineInterface.refresh_prompt()
+#add the option of letting the daemon call CommandLineInterface.refresh_prompt() instead of having to call CommandLineInterface.input() all the time
 
 class CommandLineInterface():
 	class Daemon(Thread):
@@ -23,10 +23,11 @@ class CommandLineInterface():
 		
 	markerGuard = 8
 	refreshTime = 2.0#seconds
-	def __init__(self, replacePrint=False):#replacePrint:python3 only
+	def __init__(self, replacePrint=False, marker=None):#replacePrint:python3 only
 		#what should be in front of the prompt:
 		self.prompt = " > "
 		self.markerBack = 0
+		self.marker = marker
 		
 		#the buffer for what is currently in the prompt:
 		self.line = []#string instead?
@@ -73,7 +74,7 @@ class CommandLineInterface():
 		else:
 			os.system(self.clearCMD, clear=False)
 			self.refresh_prompt(force=True)
-	def printf(self, *text, **kwargs):#sep=" ", end="\n", file=sys.stdout, end is sadly ignored if file==sys.stdout
+	def printf(self, *text, **kwargs):#sep=" ", end="\n", file=sys.stdout, end is sadly ignored if file == sys.stdout
 		sep = " "
 		if "sep" in kwargs:
 			sep = kwargs["sep"]
@@ -157,10 +158,10 @@ class CommandLineInterface():
 				#sys.stdout.write("\b")
 			sys.stdout.write(self.prompt)
 			
-			
 			#determine what window of line to print:
+			tw = int(self.terminal_width)#ensures it remains the same through the computation
 			linelen = len(self.line)
-			back = linelen - self.terminal_width + 1 + len(self.prompt)
+			back = linelen - tw + 1 + len(self.prompt)
 			mpos = linelen-self.markerBack
 			back = min(back, mpos-self.markerGuard)
 			
@@ -168,13 +169,14 @@ class CommandLineInterface():
 				back = 0
 			
 			#print the prompt
-			sys.stdout.write("".join(self.line[back:back+self.terminal_width-1-len(self.prompt)]))
+			sys.stdout.write("".join(self.line[back:back+tw-1-len(self.prompt)]))
 			
 			#position the marker
 			if self.markerBack:
-				scroll = max(0, linelen+len(self.prompt)+1 - self.terminal_width) - back
+				scroll = max(0, linelen+len(self.prompt)+1 - tw) - back
 				sys.stdout.write("\b" * (self.markerBack - scroll))
-				sys.stdout.write("#\b")#todo: make this blink
+				if self.marker:
+					sys.stdout.write("%s\b" % self.marker)#todo: make this blink?
 			
 			sys.stdout.flush()
 			self.updated = False
@@ -183,8 +185,12 @@ class CommandLineInterface():
 CLI = CommandLineInterface
 
 if __name__ == "__main__":
-	cli = CLI()
-	cli.printf("Welcome to the CLI echo example, hit ctrl-c to exit\n")
+	if os.name == "nt":#windows:
+		cli = CLI(marker="|")
+	else:#unix
+		cli = CLI()
+	
+	cli.printf("Welcome to the CLI echo example", "hit ctrl-c to exit\n", sep=", ")
 	
 	epoch = time.time()-1
 	i = 1
@@ -192,7 +198,7 @@ if __name__ == "__main__":
 		line = cli.input()#should be called often, as updates happens here
 		
 		if line:
-			cli.printf("You said: %s" % line)
+			cli.printf("You wrote: %s" % line)
 		
 		if time.time()-epoch > 1.5:
 			epoch = time.time()

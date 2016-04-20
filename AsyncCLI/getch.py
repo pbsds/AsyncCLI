@@ -79,11 +79,16 @@ WORDS = {chr(200):"Escape",
 		 "\b":"Backspace",
 		 " ":"Space",
 		 "\n":"Enter",
+         chr(254):"Ignored",
          chr(255):"Unknown"}
 for i in range(12): WORDS[chr(210+i+1)] = "F%i" % (1+i)#F1-F12
 
 if os.name == "nt":#Windows
 	import msvcrt, time
+	if sys.version_info[0] >= 3:
+		_kbcode = os.popen('chcp', 'r').read().split(": ")[-1].split("\n")[0]
+	
+	#combine these? are they alike?
 	_winEscape0Key = {27:k_Ignored,
 	                  59:k_F1,
 	                  60:k_F2,
@@ -145,7 +150,7 @@ if os.name == "nt":#Windows
 			else:
 				return k_Unknown
 			
-			if kord == "\x00":
+			if kord == 0:
 				conv = _winEscape0Key
 			else:
 				conv = _winEscape224Key
@@ -158,7 +163,7 @@ if os.name == "nt":#Windows
 				return k_Unknown
 		
 		if sys.version_info[0] >= 3:
-			return k.decode("ibm437")
+			return k.decode(_kbcode)
 		else:
 			return k
 else:#linux
@@ -216,7 +221,7 @@ else:#linux
 	READER.start()
 	
 	#override the stdout and stderr to compensate for the raw terminal mode
-	class Returnator:
+	class Returnator:#watch out
 		file = None
 		def __init__(self, dest):
 			self.file = dest
